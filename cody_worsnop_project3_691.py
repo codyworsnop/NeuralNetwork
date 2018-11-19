@@ -2,6 +2,7 @@ import numpy as np
 import sklearn
 import matplotlib.pyplot as plt
 from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_moons
 
 
 def calculate_loss(model, y, y_hat):
@@ -9,16 +10,11 @@ def calculate_loss(model, y, y_hat):
     #L(y, y_hat) = - 1/N * sum(y_n * log(y_hat_n))
     lossSum = 0
     
-    # for n in range(y.shape[0]):
-    #     for i in range(y_hat.shape[1]):
-    #         lossSum = lossSum + (y[n] * np.log(y_hat[n][i]))
+    for n in range(y.shape[0]):
+        prediction = np.argmax(y_hat[n])
+        lossSum = lossSum + (y[n] * np.log(y_hat[n][prediction]))
 
-    # return ((-1/y.shape[0]) * lossSum)
-
-    corect_logprobs = -np.log(y_hat[range(len(y)), y])
-    data_loss = np.sum(corect_logprobs)
-
-    return data_loss
+    return ((-1/y.shape[0]) * lossSum)
 
 def predict(model, x, classification=False):
 
@@ -89,10 +85,10 @@ def grad_desc(model, X, y, y_hat, eta):
     #derivative of L with respoect to b2
     #(y_hat - y)
 
-    model['w1'] += -0.1 * dw1
-    model['w2'] += -0.1 * dw2
-    model['b1'] += -0.1 * db1
-    model['b2'] += -0.1 * db2
+    model['w1'] += -0.01 * dw1
+    model['w2'] += -0.01 * dw2
+    model['b1'] += -0.01 * db1
+    model['b2'] += -0.01 * db2
 
 def build_model(X, y, nn_hdim, num_passes=20000, print_loss=False):
     
@@ -116,15 +112,11 @@ def build_model(X, y, nn_hdim, num_passes=20000, print_loss=False):
         loss = calculate_loss(model, y, predictions)
 
         #print loss if needed
-        if (print_loss and iteration % 50 == 0):
+        if (print_loss and iteration % 1000 == 0 and iteration != 0):
             print("Current loss value: " + str(loss))
 
         #back propagate to update the weights 
         grad_desc(model, X, y, predictions, 0.1)
-
-        if (iteration % 100 == 0):
-
-            print ("Iteration: " + str(iteration))
 
         #reset a, h, z
         model['h'] = []
@@ -154,8 +146,8 @@ def plot_decision_boundary(pred_func, X, y):
 
 ##########################################
 
-X, y = make_blobs(n_samples=100, centers=2, n_features=2, random_state=0)
-
+#X, y = make_blobs(n_samples=100, centers=2, n_features=2, random_state=0)
+X, y = make_moons(200, noise=0.2)
 plt.figure(figsize=(16,32))
 hidden_layer_dimensions = [1, 2, 3, 4]
 
