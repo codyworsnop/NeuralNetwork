@@ -2,18 +2,23 @@ import numpy as np
 import sklearn
 import matplotlib.pyplot as plt
 from sklearn.datasets.samples_generator import make_blobs
-from sklearn.datasets import make_moons
 
 
 def calculate_loss(model, y, y_hat):
 
     #L(y, y_hat) = - 1/N * sum(y_n * log(y_hat_n))
-    lossSum = 0.0
+    lossSum = 0
+    
+    # for n in range(y.shape[0]):
+    #     for i in range(y_hat.shape[1]):
+    #         lossSum = lossSum + (y[n] * np.log(y_hat[n][i]))
 
-    for n in range(y.shape[0]):
-        lossSum += np.log(y_hat[n][y[n]])
+    # return ((-1/y.shape[0]) * lossSum)
 
-    return ((-1/y.shape[0]) * lossSum)
+    corect_logprobs = -np.log(y_hat[range(len(y)), y])
+    data_loss = np.sum(corect_logprobs)
+
+    return data_loss
 
 def predict(model, x, classification=False):
 
@@ -52,49 +57,54 @@ def predict_many(model, X):
 
 def diff_y(y_hat, y):
 
-    diff_y = np.array(y_hat)
-    for iteration in range(0, y.shape[0]):
-
-        diff_y[iteration][y[iteration]] -= 1
+    diff_y = np.zeros(y_hat.shape)
+    for iteration in range(y.shape[0]):
+        diff_y[iteration] = (np.argmax(y_hat[iteration]) - y[iteration])
     
     return diff_y
 
 def grad_desc(model, X, y, y_hat, eta):
 
     h = np.asarray([item for sublist in model['h'] for item in sublist])
-    eta = 0.01
+    ydiff = diff_y(y_hat, y)
 
-    y_difference = diff_y(y_hat, y)
-    tan_func = (1 - (h ** 2))
+    delta3 = y_hat
+    delta3[range(len(X)), y] -= 1
 
     #derivative of L with respect to w2
     #h_transpose * (y_hat - y)
-    model['w2'] = model['w2'] - eta * np.dot(np.transpose(h), y_difference)
-
-    #derivative of L with respect to b2 
-    #y_hat - y
-    model['b2'] = model['b2'] - eta * np.sum(diff_y(y_hat, y), axis=0, keepdims=True)
-     
+    dw2 = np.dot(np.transpose(h), delta3)
+    db2 = np.sum(delta3, axis=0, keepdims=True)
     #derivative of L with respect to w1
     #x_transpose * (1 - tanh^2(a) * (y_hat - y) * w2_transpose)
-    model['w1'] = model['w1'] - eta * np.dot(np.transpose(X), tan_func * np.dot(y_difference, np.transpose(model['w2'])))
+    delta22 = np.dot(delta3, np.transpose(model['w2'])) * (1 - np.power(h, 2))
+    dw11 = np.dot(np.transpose(X), delta22)
+    dw1 = np.dot(np.transpose(X), np.dot(delta3, np.transpose(model['w2'])) * (1 - np.power(h, 2)))
 
+    db1 = np.sum(np.dot(delta3, np.transpose(model['w2'])) * (1 - np.power(h, 2)), axis=0)
     #derivative of L with respect to b1
     #(1 - tanh^2(a) * (y_hat - y) * w2_transpose)
-    model['b1'] = model['b1'] - eta * np.sum(tan_func * np.dot(y_difference, np.transpose(model['w2'])))
+    #model['b1'] = model['b1'] - eta * (((1 - np.tanh(model['a'][index])) ** 2) * (y_hat_val - y[index]) * np.transpose(model['w2']))
+    
+    #derivative of L with respoect to b2
+    #(y_hat - y)
 
+    model['w1'] += -0.1 * dw1
+    model['w2'] += -0.1 * dw2
+    model['b1'] += -0.1 * db1
+    model['b2'] += -0.1 * db2
 
 def build_model(X, y, nn_hdim, num_passes=20000, print_loss=False):
     
     #initialize weights randomly over the normal distribution, let bias terms init to zero
     model = {
-        'w1' : np.random.randn(2, nn_hdim),
-        'b1' : np.zeros(shape=(1, nn_hdim)),
-        'w2' : np.random.randn(nn_hdim, 2),
-        'b2' : np.zeros(shape=(1, 2)),
-        'h' : [],
-        'a' : [],
-        'z' : [],  
+    'w1' : np.random.randn(2, nn_hdim),
+    'b1' : np.zeros(shape=(1, nn_hdim)),
+    'w2' : np.random.randn(nn_hdim, 2),
+    'b2' : np.zeros(shape=(1, 2)),
+    'h' : [],
+    'a' : [],
+    'z' : [],  
     }
     
     for iteration in range(num_passes):
@@ -106,11 +116,15 @@ def build_model(X, y, nn_hdim, num_passes=20000, print_loss=False):
         loss = calculate_loss(model, y, predictions)
 
         #print loss if needed
-        if (print_loss and iteration % 100 == 0 and iteration != 0):
+        if (print_loss and iteration % 50 == 0):
             print("Current loss value: " + str(loss))
 
         #back propagate to update the weights 
         grad_desc(model, X, y, predictions, 0.1)
+
+        if (iteration % 100 == 0):
+
+            print ("Iteration: " + str(iteration))
 
         #reset a, h, z
         model['h'] = []
@@ -140,17 +154,15 @@ def plot_decision_boundary(pred_func, X, y):
 
 ##########################################
 
-#X, y = make_blobs(n_samples=100, centers=3, n_features=2, random_state=0)
-X, y = make_moons(200, noise=0.2)
+X, y = make_blobs(n_samples=100, centers=2, n_features=2, random_state=0)
+
 plt.figure(figsize=(16,32))
 hidden_layer_dimensions = [1, 2, 3, 4]
-#hidden_layer_dimensions = [1]
-
 
 for i, nn_hdim in enumerate(hidden_layer_dimensions):
-    plt.subplot(2, 2, i+1)
+    plt.subplot(5, 2, i+1)
     plt.title('Hidden Layer Size %d' % nn_hdim)
-    model = build_model(X, y, nn_hdim, 1000, True)
+    model = build_model(X, y, nn_hdim, 5000, True)
     plot_decision_boundary(lambda x: predict(model, x, True), X, y)
 
 plt.show()
