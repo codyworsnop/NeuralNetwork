@@ -39,10 +39,10 @@ def predict(model, x, classification=False):
 
     return softmax
 
-def predict_many(model, X):
+def predict_many(model, X, outputSize=2):
 
     index = 0
-    predictions = np.zeros((X.shape[0], 2))
+    predictions = np.zeros((X.shape[0], outputSize))
 
     for sample in X:
         predictions[index] = predict(model, sample)
@@ -62,6 +62,7 @@ def diff_y(y_hat, y):
 def grad_desc(model, X, y, y_hat, eta):
 
     h = np.asarray([item for sublist in model['h'] for item in sublist])
+    a = np.asarray([item for sublist in model['a'] for item in sublist])
     eta = 0.01
 
     y_difference = diff_y(y_hat, y)
@@ -102,11 +103,48 @@ def build_model(X, y, nn_hdim, num_passes=20000, print_loss=False):
         #forward propagate
         predictions = predict_many(model, X)
 
-        #calculate the loss
-        loss = calculate_loss(model, y, predictions)
+        #print loss if needed
+        if (print_loss and iteration % 100 == 0 and iteration != 0):
+
+            #calculate the loss
+            loss = calculate_loss(model, y, predictions)
+
+            print("Current loss value: " + str(loss))
+
+        #back propagate to update the weights 
+        grad_desc(model, X, y, predictions, 0.1)
+
+        #reset a, h, z
+        model['h'] = []
+        model['a'] = []
+        model['z'] = []
+
+    return model
+
+def build_model_691(X, y, nn_hdim, num_passes=20000, print_loss=False):
+    
+    #initialize weights randomly over the normal distribution, let bias terms init to zero
+    model = {
+        'w1' : np.random.randn(2, nn_hdim),
+        'b1' : np.zeros(shape=(1, nn_hdim)),
+        'w2' : np.random.randn(nn_hdim, 3),
+        'b2' : np.zeros(shape=(1, 3)),
+        'h' : [],
+        'a' : [],
+        'z' : [],  
+    }
+
+    for iteration in range(num_passes):
+
+        #forward propagate
+        predictions = predict_many(model, X, 3)
 
         #print loss if needed
         if (print_loss and iteration % 100 == 0 and iteration != 0):
+
+            #calculate the loss
+            loss = calculate_loss(model, y, predictions)
+
             print("Current loss value: " + str(loss))
 
         #back propagate to update the weights 
@@ -137,20 +175,18 @@ def plot_decision_boundary(pred_func, X, y):
     plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
     plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.Spectral)
 
-
-##########################################
-
-#X, y = make_blobs(n_samples=100, centers=3, n_features=2, random_state=0)
-X, y = make_moons(200, noise=0.2)
+X, y = make_blobs(n_samples=100, centers=3, n_features=2, random_state=0)
+#X, y = make_moons(200, noise=0.2)
 plt.figure(figsize=(16,32))
 hidden_layer_dimensions = [1, 2, 3, 4]
 #hidden_layer_dimensions = [1]
 
 
 for i, nn_hdim in enumerate(hidden_layer_dimensions):
+    print ("NEXT")
     plt.subplot(2, 2, i+1)
     plt.title('Hidden Layer Size %d' % nn_hdim)
-    model = build_model(X, y, nn_hdim, 1000, True)
+    model = build_model_691(X, y, nn_hdim, 1000, True)
     plot_decision_boundary(lambda x: predict(model, x, True), X, y)
 
 plt.show()
