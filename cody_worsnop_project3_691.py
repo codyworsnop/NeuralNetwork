@@ -27,12 +27,13 @@ def predict(model, x, classification=False):
     z = np.dot(h, model['w2']) + model['b2']
 
     #yhat = softmax(z)
-    softmax = np.exp(z) / np.sum(np.exp(z), axis=1, keepdims=True)
+    softmax = np.exp(z) / np.sum(np.exp(z))
 
     #update model
     model['a'].append(a)
     model['h'].append(h)
     model['z'].append(z)
+
 
     if (classification):
         return np.argmax(softmax, axis=1)
@@ -45,44 +46,56 @@ def predict_many(model, X, outputSize=2):
     predictions = np.zeros((X.shape[0], outputSize))
 
     for sample in X:
+        sample = np.reshape(sample, (1, 2))
         predictions[index] = predict(model, sample)
         index = index + 1
 
     return predictions
 
-def diff_y(y_hat, y):
-
-    diff_y = np.array(y_hat)
-    for iteration in range(0, y.shape[0]):
-
-        diff_y[iteration][y[iteration]] -= 1
-    
-    return diff_y
-
-def grad_desc(model, X, y, y_hat, eta):
+def grad_desc(model, X, y, y_hat, eta, nn_hdim):
 
     h = np.asarray([item for sublist in model['h'] for item in sublist])
     a = np.asarray([item for sublist in model['a'] for item in sublist])
     eta = 0.01
+    diff_y = np.array(y_hat)
 
-    y_difference = diff_y(y_hat, y)
-    tan_func = (1 - (h ** 2))
+    for iteration in range(0, X.shape[0]):
 
-    #derivative of L with respect to w2
-    #h_transpose * (y_hat - y)
-    model['w2'] = model['w2'] - eta * np.dot(np.transpose(h), y_difference)
+        h_value = np.reshape(h[iteration], (1, nn_hdim))
+        x_value = np.reshape(X[iteration], (1, 2))   
 
-    #derivative of L with respect to b2 
-    #y_hat - y
-    model['b2'] = model['b2'] - eta * np.sum(diff_y(y_hat, y), axis=0, keepdims=True)
-     
-    #derivative of L with respect to w1
-    #x_transpose * (1 - tanh^2(a) * (y_hat - y) * w2_transpose)
-    model['w1'] = model['w1'] - eta * np.dot(np.transpose(X), tan_func * np.dot(y_difference, np.transpose(model['w2'])))
+        #derivative of L with respect to y
+        #y_hat - y 
+        diff_y[iteration][y[iteration]] -= 1 
+        dldy = np.reshape(diff_y[iteration], (1, 2)) 
 
-    #derivative of L with respect to b1
-    #(1 - tanh^2(a) * (y_hat - y) * w2_transpose)
-    model['b1'] = model['b1'] - eta * np.sum(tan_func * np.dot(y_difference, np.transpose(model['w2'])))
+        #derivative of L with respect to a
+        #1 - tanh(a)^2 * dldy * w2^t
+        tan_func = np.reshape((1 - (np.tanh(a[iteration]) ** 2)), (1, nn_hdim))
+        dlda = tan_func * np.dot(dldy, np.transpose(model['w2']))
+
+        #derivative of L with respect to w2
+        #h_transpose * (y_hat - y)
+        dlw2 = np.dot(np.transpose(h_value), dldy)
+
+        #derivative of L with respect to b2 
+        #y_hat - y
+        dlb2 = dldy
+        
+        #derivative of L with respect to w1
+        #x_transpose * (1 - tanh^2(a) * (y_hat - y) * w2_transpose)
+        dlw1 = np.dot(np.transpose(x_value), dlda)
+
+        #derivative of L with respect to b1
+        #(1 - tanh^2(a) * (y_hat - y) * w2_transpose)
+        dlb1 = dlda
+
+        model['w1'] = model['w1'] - eta * dlw1
+        model['b1'] = model['b1'] - eta * dlb1
+        model['w2'] = model['w2'] - eta * dlw2
+        model['b2'] = model['b2'] - eta * dlb2
+
+
 
 
 def build_model(X, y, nn_hdim, num_passes=20000, print_loss=False):
@@ -112,7 +125,7 @@ def build_model(X, y, nn_hdim, num_passes=20000, print_loss=False):
             print("Current loss value: " + str(loss))
 
         #back propagate to update the weights 
-        grad_desc(model, X, y, predictions, 0.1)
+        grad_desc(model, X, y, predictions, 0.1, nn_hdim)
 
         #reset a, h, z
         model['h'] = []
@@ -140,7 +153,7 @@ def build_model_691(X, y, nn_hdim, num_passes=20000, print_loss=False):
         predictions = predict_many(model, X, 3)
 
         #print loss if needed
-        if (print_loss and iteration % 100 == 0 and iteration != 0):
+        if (print_loss and iteration % 1000 == 0 and iteration != 0):
 
             #calculate the loss
             loss = calculate_loss(model, y, predictions)
@@ -148,7 +161,7 @@ def build_model_691(X, y, nn_hdim, num_passes=20000, print_loss=False):
             print("Current loss value: " + str(loss))
 
         #back propagate to update the weights 
-        grad_desc(model, X, y, predictions, 0.1)
+        grad_desc(model, X, y, predictions, 0.1, nn_hdim)
 
         #reset a, h, z
         model['h'] = []
@@ -175,18 +188,18 @@ def plot_decision_boundary(pred_func, X, y):
     plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
     plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.Spectral)
 
-X, y = make_blobs(n_samples=100, centers=3, n_features=2, random_state=0)
-#X, y = make_moons(200, noise=0.2)
+#X, y = make_blobs(n_samples=100, centers=3, n_features=2, random_state=0)
+X, y = make_moons(200, noise=0.2)
 plt.figure(figsize=(16,32))
-hidden_layer_dimensions = [1, 2, 3, 4]
-#hidden_layer_dimensions = [1]
+#hidden_layer_dimensions = [1, 2, 3, 4]
+hidden_layer_dimensions = [4]
 
 
 for i, nn_hdim in enumerate(hidden_layer_dimensions):
     print ("NEXT")
     plt.subplot(2, 2, i+1)
     plt.title('Hidden Layer Size %d' % nn_hdim)
-    model = build_model_691(X, y, nn_hdim, 1000, True)
+    model = build_model(X, y, nn_hdim, 500, True)
     plot_decision_boundary(lambda x: predict(model, x, True), X, y)
 
 plt.show()
