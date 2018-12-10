@@ -138,8 +138,7 @@ def build_model_691(X, y, nn_hdim, num_passes=20000, print_loss=False):
         if (print_loss and iteration % 1000 == 0 and iteration != 0):
 
             #calculate the loss
-            loss = calculate_loss(model, y, predictions)
-
+            loss = calculate_loss(model, X, y)
             print("Current loss value: " + str(loss))
 
         #back propagate to update the weights 
@@ -169,24 +168,3 @@ def plot_decision_boundary(pred_func, X, y):
     # Plot the contour and training examples
     plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
     plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.Spectral)
-
-
-#X, y = make_blobs(n_samples=100, centers=3, n_features=2, random_state=0)
-
-def gen(): 
-
-    np.random.seed(0)
-    X, y = make_moons(200, noise=0.2)
-    plt.figure(figsize=(16,32))
-    hidden_layer_dimensions = [1, 2, 3, 4]
-
-    for i, nn_hdim in enumerate(hidden_layer_dimensions):
-        plt.subplot(2, 2, i+1)
-        plt.title('Hidden Layer Size %d' % nn_hdim)
-        model = build_model(X, y, nn_hdim, 5000, print_loss=True)
-        plot_decision_boundary(lambda x: predict(model, x), X, y)
-    plt.show()
-
-
-gen()
-a = 3
